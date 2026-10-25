@@ -1,0 +1,30 @@
+name: Morning report
+
+on:
+  schedule:
+    - cron: "30 3 * * *" # 05:30 UTC+2. GitHub cron is in UTC and often starts a few minutes late
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: morning-report
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    # Hard stop shortly after 09:00 UTC+2; the script itself gives up at 09:00
+    timeout-minutes: 220
+    env:
+      TZ: Africa/Johannesburg # UTC+2, so "today" and --wait-until are local
+      GARMIN_PERSONAL_API_KEY: ${{ secrets.GARMIN_PERSONAL_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run --frozen playwright install --with-deps chromium
+      - name: Wait for last night's data and send the report
+        run: uv run --frozen message --wait-until 09:00

@@ -75,6 +75,30 @@ def _local_hours(ms: int) -> float:
     return round(h - 24 if h >= 12 else h, 2)
 
 
+def last_night_ready() -> bool:
+    """Whether last night's sleep and HRV are final in Garmin, which happens after the watch syncs."""
+    today = date.today().isoformat()
+    with get_client() as client:
+        sleep = client.get_daily_sleep_summaries(today, today)
+        hrv = client.get_daily_hrv_summaries(today, today)
+
+    s = next((x for x in sleep if x.get("calendarDate") == today), None)
+    checks = {
+        "sleep record": s is not None,
+        "final sleep window": bool(s)
+        and str(s.get("sleepWindowConfirmationType", "")).endswith("_final"),
+        "sleep score": bool(s)
+        and (s.get("sleepScores") or {}).get("overall", {}).get("value") is not None,
+        "HRV summary": any(
+            h.get("calendarDate") == today for h in hrv.get("hrvSummaries", [])
+        ),
+    }
+    missing = [name for name, ok in checks.items() if not ok]
+    if missing:
+        log.info("Last night not ready, missing: %s", ", ".join(missing))
+    return not missing
+
+
 def fetch_metrics() -> tuple[list[dict], list[dict]]:
     """Return the last 8 nights (ending last night) and the last 8 full days (ending yesterday).
 

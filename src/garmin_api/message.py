@@ -2,15 +2,17 @@
 
 import logging
 import os
-from datetime import date
+import time
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
 import requests
 import typer
+from garmin_personal_api import GarminPersonalApiError
 from playwright.sync_api import sync_playwright
 
-from garmin_api.api import fetch_metrics, setup_logging
+from garmin_api.api import fetch_metrics, last_night_ready, setup_logging
 from garmin_api.report import render_html
 
 log = logging.getLogger(__name__)
@@ -31,14 +33,41 @@ def render_png(nights: list[dict], days: list[dict], path: Path) -> None:
         browser.close()
 
 
+def _wait_for_data(until: str, poll_minutes: int) -> bool:
+    """Poll until last night's data is final, or until the local time `until` (HH:MM) passes."""
+    deadline = datetime.combine(date.today(), datetime.strptime(until, "%H:%M").time())
+    while True:
+        try:
+            if last_night_ready():
+                log.info("Last night's data is ready")
+                return True
+        except GarminPersonalApiError as e:
+            # Includes retries running out on 429s: treat as not ready and try again later
+            log.warning("Readiness check failed: %s", e)
+        if datetime.now() + timedelta(minutes=poll_minutes) > deadline:
+            return False
+        log.info("Checking again in %d min (giving up at %s)", poll_minutes, until)
+        time.sleep(poll_minutes * 60)
+
+
 def message(
     dry_run: Annotated[
         bool,
         typer.Option("--dry-run", help="Save the image without sending it."),
     ] = False,
+    wait_until: Annotated[
+        str | None,
+        typer.Option(
+            help="Poll until last night's data is in, up to this local time (HH:MM)."
+        ),
+    ] = None,
+    poll_minutes: Annotated[int, typer.Option(help="Minutes between checks.")] = 10,
 ) -> None:
     """Send the morning summary to Telegram as a single image."""
     setup_logging()
+    if wait_until and not _wait_for_data(wait_until, poll_minutes):
+        log.error("Last night's data was not ready by %s, nothing sent", wait_until)
+        raise typer.Exit(1)
     nights, days = fetch_metrics()
     image = Path("data") / f"message-{date.today()}.png"
     image.parent.mkdir(exist_ok=True)

@@ -25,6 +25,10 @@ TELEGRAM_CHAT_ID=...
 - `make message-send`: render and send to Telegram
 - `make run` / `make explore`: connection check / save raw API responses to `data/`
 
+## Schedule
+
+`.github/workflows/morning-report.yml` runs daily at 05:30 UTC+2 and polls until last night's data is in, giving up at 09:00. It needs the three `.env` values as repository secrets.
+
 ## Notes
 
 - No sleep stage timeline in the API, only totals per stage.
