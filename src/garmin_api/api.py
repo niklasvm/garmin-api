@@ -1,5 +1,7 @@
 """Garmin Personal API access: an authenticated client and the metrics the reports use."""
 
+import logging
+import os
 from datetime import UTC, date, datetime, timedelta
 
 import requests
@@ -11,6 +13,33 @@ from garmin_personal_api import (
 )
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
+
+log = logging.getLogger(__name__)
+
+SECRET_ENV_VARS = ("GARMIN_PERSONAL_API_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
+
+
+class _RedactSecrets(logging.Filter):
+    """Safety net: replace any secret from the environment with *** before a log line is written."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        for name in SECRET_ENV_VARS:
+            if value := os.environ.get(name):
+                message = message.replace(value, "***")
+        record.msg, record.args = message, None
+        return True
+
+
+def setup_logging() -> None:
+    """Log to stderr at INFO, including the Garmin library's request lines, with secrets redacted."""
+    load_dotenv()
+    handler = logging.StreamHandler()
+    handler.addFilter(_RedactSecrets())
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s", "%H:%M:%S")
+    )
+    logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
 
 def _retrying_session() -> requests.Session:
@@ -101,6 +130,8 @@ def fetch_metrics() -> tuple[list[dict], list[dict]]:
         if d["calendarDate"] < today.isoformat()
     ]
 
+    # Counts only: logs may be public (GitHub Actions), so no health values
+    log.info("Fetched %d nights and %d days", len(nights), len(days))
     return sorted(nights, key=lambda r: r["date"]), sorted(
         days, key=lambda r: r["date"]
     )

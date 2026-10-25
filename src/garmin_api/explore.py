@@ -1,15 +1,19 @@
 """Ad-hoc commands for exploring what the API returns."""
 
 import json
+import logging
 from datetime import date, timedelta
 from pathlib import Path
 
 from garmin_personal_api import GarminPersonalApiError
 
-from garmin_api.api import get_client
+from garmin_api.api import get_client, setup_logging
+
+log = logging.getLogger(__name__)
 
 
 def main() -> None:
+    setup_logging()
     end = date.today()
     start = end - timedelta(days=7)
 
@@ -20,6 +24,7 @@ def main() -> None:
 
 def explore() -> None:
     """Save one sample response per sleep, HRV and heart rate endpoint to data/."""
+    setup_logging()
     day = date.today() - timedelta(days=1)
     start = day - timedelta(days=6)
     out = Path("data")
@@ -39,6 +44,6 @@ def explore() -> None:
         for name, fetch in samples.items():
             try:
                 (out / f"{name}.json").write_text(json.dumps(fetch(), indent=2))
-                print(f"saved {name}")
+                log.info("Saved %s", name)
             except GarminPersonalApiError as e:
-                print(f"failed {name}: {e}")
+                log.error("Failed %s: %s", name, e)
