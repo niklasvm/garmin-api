@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morning Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5; --card: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --grid: #e5e5e5;
+    --accent: #2563eb; --base: #b8c4d6; --good: #15803d; --bad: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141416; --card: #1f1f22; --text: #f2f2f2; --muted: #9a9aa0; --grid: #2e2e32;
+      --accent: #60a5fa; --base: #4b5567; --good: #4ade80; --bad: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--text);
+         font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 26px; }
+  h2 { margin: 28px 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .sub { color: var(--muted); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .tile, .chart { background: var(--card); border-radius: 12px; padding: 14px 16px; }
+  .tile .label { font-size: 13px; color: var(--muted); }
+  .tile .value { font-size: 26px; font-weight: 600; margin: 2px 0; }
+  .tile .value small { font-size: 14px; font-weight: 400; color: var(--muted); }
+  .tile .delta { font-size: 13px; color: var(--muted); }
+  .good { color: var(--good) !important; } .bad { color: var(--bad) !important; }
+  .charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  .chart h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+  .chart div { position: relative; height: 200px; }
+
+  /* Compact layout for the phone-sized image sent as a message */
+  body.compact { padding: 20px 16px; font-size: 13px; }
+  .compact h1 { font-size: 22px; }
+  .compact h2 { margin: 18px 0 8px; font-size: 11px; }
+  .compact .tiles { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .compact .tile, .compact .chart { padding: 10px 12px; border-radius: 10px; }
+  .compact .tile .label { font-size: 11px; }
+  .compact .tile .value { font-size: 22px; }
+  .compact .tile .value small { font-size: 12px; }
+  .compact .tile .delta { font-size: 10.5px; line-height: 1.3; }
+  .compact .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .compact .chart h3 { font-size: 12px; }
+  .compact .chart div { height: 140px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Morning report</h1>
+  <div class="sub" id="date"></div>
+
+  <h2>Last night, against the previous 7 nights</h2>
+  <div class="tiles" id="night-tiles"></div>
+
+  <h2>Yesterday, against the previous 7 days</h2>
+  <div class="tiles" id="day-tiles"></div>
+
+  <h2>Trends</h2>
+  <div class="charts" id="charts"></div>
+</main>
+
+<script>
+const data = __DATA__;
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const C = { accent: css("--accent"), base: css("--base"), muted: css("--muted"), grid: css("--grid") };
+Chart.defaults.color = C.muted;
+Chart.defaults.borderColor = C.grid;
+Chart.defaults.plugins.legend.display = false;
+Chart.defaults.maintainAspectRatio = false;
+Chart.defaults.animation = false;
+if (data.compact) {
+  document.body.classList.add("compact");
+  Chart.defaults.font.size = 10;
+}
+
+const fmtDate = d => new Date(d + "T00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+const fmtTime = h => { const m = Math.round(((h + 24) % 24) * 60); return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
+const mean = xs => { const v = xs.filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+
+// Date of the latest night in the data, so the header matches what is shown
+const reportDate = data.nights.length ? new Date(data.nights.at(-1).date + "T00:00") : new Date();
+document.getElementById("date").textContent = reportDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+// better: "up" if higher is better, "down" if lower is better, null for neutral
+function tile(label, rows, key, { unit = "", better = null, digits = 0, fmt = null } = {}) {
+  const last = rows.at(-1)?.[key];
+  const avg = mean(rows.slice(0, -1).map(r => r[key]));
+  const show = v => v == null ? "–" : fmt ? fmt(v) : v.toFixed(digits);
+  let delta = "", cls = "";
+  if (last != null && avg != null) {
+    // Round first so a change that displays as zero is neither signed nor coloured
+    const d = fmt ? Math.round((last - avg) * 60) / 60 : Number((last - avg).toFixed(digits));
+    const sign = d > 0 ? "+" : d < 0 ? "−" : "±";
+    const dTxt = fmt ? (d === 0 ? "same as" : `${Math.round(Math.abs(d) * 60)} min ${d > 0 ? "later" : "earlier"} than`)
+                     : `${sign}${Math.abs(d).toFixed(digits)} vs`;
+    if (better && d !== 0) cls = (d > 0) === (better === "up") ? "good" : "bad";
+    delta = `<span class="${cls}">${dTxt}</span> avg ${show(avg)}`;
+  }
+  return `<div class="tile"><div class="label">${label}</div>
+    <div class="value">${show(last)}<small> ${unit}</small></div><div class="delta">${delta}</div></div>`;
+}
+
+const N = data.nights, D = data.days;
+document.getElementById("night-tiles").innerHTML = [
+  tile("Sleep", N, "sleep_h", { unit: "h", better: "up", digits: 1 }),
+  tile("Sleep score", N, "score", { better: "up" }),
+  tile("Bedtime", N, "bed_h", { fmt: fmtTime }),
+  tile("Wake time", N, "wake_h", { fmt: fmtTime }),
+  tile("Deep", N, "deep_h", { unit: "h", better: "up", digits: 1 }),
+  tile("REM", N, "rem_h", { unit: "h", better: "up", digits: 1 }),
+  tile("HRV", N, "hrv", { unit: "ms", better: "up" }),
+  data.compact ? "" : tile("Avg sleep HR", N, "sleep_hr", { unit: "bpm", better: "down" }),
+  tile("Resting HR", N, "rhr", { unit: "bpm", better: "down" }),
+].join("");
+document.getElementById("day-tiles").innerHTML = [
+  tile("Body Battery max", D, "bb_max", { better: "up" }),
+  tile("Body Battery min", D, "bb_min", { better: "up" }),
+  tile("Avg stress", D, "stress_avg", { better: "down" }),
+  tile("Max stress", D, "stress_max", { better: "down" }),
+].join("");
+
+// Highlight the most recent bar, mute the rest
+const highlight = rows => rows.map((_, i) => i === rows.length - 1 ? C.accent : C.base);
+const weekday = d => new Date(d + "T00:00").toLocaleDateString("en-GB", { weekday: "short" }).slice(0, 2);
+const labels = (rows, lastLabel) => rows.map((r, i) =>
+  data.compact ? weekday(r.date) : i === rows.length - 1 ? lastLabel : fmtDate(r.date));
+
+function chart(title, config) {
+  const el = document.createElement("div");
+  el.className = "chart";
+  el.innerHTML = `<h3>${title}</h3><div><canvas></canvas></div>`;
+  document.getElementById("charts").append(el);
+  new Chart(el.querySelector("canvas"), config);
+}
+
+const nightLabels = labels(N, "Last night"), dayLabels = labels(D, "Yesterday");
+
+chart("Sleep stages (h)", {
+  type: "bar",
+  data: { labels: nightLabels, datasets: [
+    { label: "Deep", data: N.map(r => r.deep_h), backgroundColor: "#1e3a8a" },
+    { label: "Light", data: N.map(r => r.light_h), backgroundColor: "#60a5fa" },
+    { label: "REM", data: N.map(r => r.rem_h), backgroundColor: "#a78bfa" },
+    { label: "Awake", data: N.map(r => r.awake_h), backgroundColor: "#f9a8d4" },
+  ] },
+  options: { scales: { x: { stacked: true }, y: { stacked: true } },
+             plugins: { legend: { display: !data.compact, position: "bottom", labels: { boxWidth: 10 } } } },
+});
+
+// The compact image only shows sleep stages, HRV, resting HR and Body Battery
+if (!data.compact) chart("Sleep window", {
+  type: "bar",
+  data: { labels: nightLabels, datasets: [{ data: N.map(r => [r.bed_h, r.wake_h]), backgroundColor: highlight(N) }] },
+  options: {
+    scales: { y: { reverse: true, ticks: { callback: fmtTime } } },
+    plugins: { tooltip: { callbacks: { label: c => `${fmtTime(c.raw[0])} → ${fmtTime(c.raw[1])}` } } },
+  },
+});
+
+if (!data.compact) chart("Sleep score", {
+  type: "bar",
+  data: { labels: nightLabels, datasets: [{ data: N.map(r => r.score), backgroundColor: highlight(N) }] },
+  options: { scales: { y: { min: 0, max: 100 } } },
+});
+
+chart(data.compact ? "HRV (ms) and baseline" : "HRV (ms) with balanced baseline range", {
+  type: "bar",
+  data: { labels: nightLabels, datasets: [
+    { type: "line", data: N.map(r => r.hrv_high), borderColor: C.muted, borderDash: [4, 4], pointRadius: 0 },
+    { type: "line", data: N.map(r => r.hrv_low), borderColor: C.muted, borderDash: [4, 4], pointRadius: 0 },
+    { data: N.map(r => r.hrv), backgroundColor: highlight(N) },
+  ] },
+});
+
+chart("Resting heart rate (bpm)", {
+  type: "line",
+  data: { labels: nightLabels, datasets: [{ data: N.map(r => r.rhr), borderColor: C.accent,
+          pointBackgroundColor: highlight(N), pointBorderColor: highlight(N), pointRadius: 5 }] },
+});
+
+chart("Body Battery (min to max)", {
+  type: "bar",
+  data: { labels: dayLabels, datasets: [{ data: D.map(r => [r.bb_min, r.bb_max]), backgroundColor: highlight(D) }] },
+  options: { scales: { y: { min: 0, max: 100 } },
+             plugins: { tooltip: { callbacks: { label: c => `${c.raw[0]} → ${c.raw[1]}` } } } },
+});
+
+if (!data.compact) chart("Stress (bars: avg, dots: max)", {
+  type: "bar",
+  data: { labels: dayLabels, datasets: [
+    { type: "line", data: D.map(r => r.stress_max), showLine: false, pointRadius: 4,
+      pointBackgroundColor: C.muted, borderColor: C.muted },
+    { data: D.map(r => r.stress_avg), backgroundColor: highlight(D) },
+  ] },
+  options: { scales: { y: { min: 0, max: 100 } } },
+});
+</script>
+</body>
+</html>
