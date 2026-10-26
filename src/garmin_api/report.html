@@ -79,6 +79,8 @@ if (data.compact) {
 }
 
 const fmtDate = d => new Date(d + "T00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+const pad = n => String(n).padStart(2, "0");
+const fmtDur = h => { const m = Math.round(h * 60); return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`; };
 const fmtTime = h => { const m = Math.round(((h + 24) % 24) * 60); return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
 const mean = xs => { const v = xs.filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
 
@@ -87,7 +89,8 @@ const reportDate = data.nights.length ? new Date(data.nights.at(-1).date + "T00:
 document.getElementById("date").textContent = reportDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 // better: "up" if higher is better, "down" if lower is better, null for neutral
-function tile(label, rows, key, { unit = "", better = null, digits = 0, fmt = null } = {}) {
+// clock: fmt shows a time of day, so the change reads as minutes earlier or later
+function tile(label, rows, key, { unit = "", better = null, digits = 0, fmt = null, clock = false } = {}) {
   const last = rows.at(-1)?.[key];
   const avg = mean(rows.slice(0, -1).map(r => r[key]));
   const show = v => v == null ? "–" : fmt ? fmt(v) : v.toFixed(digits);
@@ -96,8 +99,8 @@ function tile(label, rows, key, { unit = "", better = null, digits = 0, fmt = nu
     // Round first so a change that displays as zero is neither signed nor coloured
     const d = fmt ? Math.round((last - avg) * 60) / 60 : Number((last - avg).toFixed(digits));
     const sign = d > 0 ? "+" : d < 0 ? "−" : "±";
-    const dTxt = fmt ? (d === 0 ? "same as" : `${Math.round(Math.abs(d) * 60)} min ${d > 0 ? "later" : "earlier"} than`)
-                     : `${sign}${Math.abs(d).toFixed(digits)} vs`;
+    const dTxt = clock ? (d === 0 ? "same as" : `${Math.round(Math.abs(d) * 60)} min ${d > 0 ? "later" : "earlier"} than`)
+                       : `${sign}${fmt ? fmt(Math.abs(d)) : Math.abs(d).toFixed(digits)} vs`;
     if (better && d !== 0) cls = (d > 0) === (better === "up") ? "good" : "bad";
     delta = `<span class="${cls}">${dTxt}</span> avg ${show(avg)}`;
   }
@@ -107,12 +110,12 @@ function tile(label, rows, key, { unit = "", better = null, digits = 0, fmt = nu
 
 const N = data.nights, D = data.days;
 document.getElementById("night-tiles").innerHTML = [
-  tile("Sleep", N, "sleep_h", { unit: "h", better: "up", digits: 1 }),
+  tile("Sleep", N, "sleep_h", { better: "up", fmt: fmtDur }),
   tile("Sleep score", N, "score", { better: "up" }),
-  tile("Bedtime", N, "bed_h", { fmt: fmtTime }),
-  tile("Wake time", N, "wake_h", { fmt: fmtTime }),
-  tile("Deep", N, "deep_h", { unit: "h", better: "up", digits: 1 }),
-  tile("REM", N, "rem_h", { unit: "h", better: "up", digits: 1 }),
+  tile("Bedtime", N, "bed_h", { fmt: fmtTime, clock: true }),
+  tile("Wake time", N, "wake_h", { fmt: fmtTime, clock: true }),
+  tile("Deep", N, "deep_h", { better: "up", fmt: fmtDur }),
+  tile("REM", N, "rem_h", { better: "up", fmt: fmtDur }),
   tile("HRV", N, "hrv", { unit: "ms", better: "up" }),
   data.compact ? "" : tile("Avg sleep HR", N, "sleep_hr", { unit: "bpm", better: "down" }),
   tile("Resting HR", N, "rhr", { unit: "bpm", better: "down" }),
