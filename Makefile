@@ -1,4 +1,4 @@
-.PHONY: sync browser run explore report message message-send lint pi-setup
+.PHONY: sync browser run explore report message message-send lint pi-setup pi-remove
 
 sync:
 	uv sync --frozen
@@ -37,3 +37,9 @@ pi-setup:
 	systemctl --user daemon-reload
 	systemctl --user enable --now morning-report.timer
 	systemctl --user list-timers morning-report.timer
+
+# On the Pi: stop and delete the daily systemd timer
+pi-remove:
+	-systemctl --user disable --now morning-report.timer
+	rm -f ~/.config/systemd/user/morning-report.service ~/.config/systemd/user/morning-report.timer
+	systemctl --user daemon-reload

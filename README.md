@@ -35,7 +35,7 @@ One-time setup on the Pi (64-bit OS, uv installed, `.env` copied into the repo),
 make pi-setup  # asks for sudo
 ```
 
-Check it with `systemctl --user list-timers` and `journalctl --user -u morning-report`; start a run now with `systemctl --user start --no-block morning-report`.
+Check it with `systemctl --user list-timers` and `journalctl --user -u morning-report`; start a run now with `systemctl --user start --no-block morning-report`. `make pi-remove` deletes the timer.
 
 `.github/workflows/morning-report.yml` does the same on GitHub, started by hand from the Actions tab. It needs the three `.env` values as repository secrets.
 
