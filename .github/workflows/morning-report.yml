@@ -17,6 +17,7 @@ jobs:
     timeout-minutes: 220
     env:
       TZ: Africa/Johannesburg # UTC+2, so "today" and --wait-until are local
+      UV_NO_DEV: 1
       GARMIN_PERSONAL_API_KEY: ${{ secrets.GARMIN_PERSONAL_API_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

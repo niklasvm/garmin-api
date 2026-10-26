@@ -463,30 +463,38 @@ name = "garmin-api"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "duckdb" },
     { name = "garmin-connect-personal-api-python" },
-    { name = "ipython" },
-    { name = "jupyter" },
     { name = "playwright" },
-    { name = "polars" },
-    { name = "pyarrow" },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "typer" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "duckdb" },
+    { name = "ipython" },
+    { name = "jupyter" },
+    { name = "polars" },
+    { name = "pyarrow" },
+]
+
 [package.metadata]
 requires-dist = [
-    { name = "duckdb", specifier = ">=2.0.0" },
     { name = "garmin-connect-personal-api-python", specifier = ">=1.0.0" },
-    { name = "ipython", specifier = ">=9.17.1" },
-    { name = "jupyter", specifier = ">=1.1.1" },
     { name = "playwright", specifier = ">=1.64.1" },
-    { name = "polars", specifier = ">=2.0.0" },
-    { name = "pyarrow", specifier = ">=26.0.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "typer", specifier = ">=0.27.3" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "duckdb", specifier = ">=2.0.0" },
+    { name = "ipython", specifier = ">=9.17.1" },
+    { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "polars", specifier = ">=2.0.0" },
+    { name = "pyarrow", specifier = ">=26.0.0" },
 ]
 
 [[package]]

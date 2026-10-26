@@ -29,13 +29,10 @@ TELEGRAM_CHAT_ID=...
 
 A systemd timer on a Raspberry Pi (`deploy/`) runs daily at 05:30 UTC+2, pulls the latest code and polls until last night's data is in, giving up at 09:00. If the Pi was off at 05:30, it runs on boot.
 
-One-time setup on the Pi (64-bit OS, repo cloned to `~/garmin-api`, [uv](https://docs.astral.sh/uv/) in `~/.local/bin`, `.env` copied over):
+One-time setup on the Pi (64-bit OS, uv installed, `.env` copied into the repo), from the repo folder:
 
 ```sh
-make sync
-uv run --frozen playwright install --with-deps chromium  # asks for sudo
-sudo loginctl enable-linger $USER  # run the timer without being logged in
-make pi-install
+make pi-setup  # asks for sudo
 ```
 
 Check it with `systemctl --user list-timers` and `journalctl --user -u morning-report`; start a run now with `systemctl --user start --no-block morning-report`.

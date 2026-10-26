@@ -2,12 +2,15 @@
 Description=Garmin morning report to Telegram
 
 [Service]
+# make pi-setup fills in @REPO@ and @UV@
 Type=oneshot
-WorkingDirectory=%h/garmin-api
+WorkingDirectory=@REPO@
 Environment=TZ=Africa/Johannesburg
+# Skip the dev group (notebooks, polars etc.) on the Pi
+Environment=UV_NO_DEV=1
 # Pick up code changes; a failed pull (e.g. no network yet) doesn't stop the run
 ExecStartPre=-/usr/bin/git pull --ff-only
-ExecStartPre=%h/.local/bin/uv sync --frozen
-ExecStartPre=%h/.local/bin/uv run --frozen playwright install chromium
-ExecStart=%h/.local/bin/uv run --frozen message --wait-until 09:00
+ExecStartPre=@UV@ sync --frozen
+ExecStartPre=@UV@ run --frozen playwright install chromium
+ExecStart=@UV@ run --frozen message --wait-until 09:00
 TimeoutStartSec=4h
