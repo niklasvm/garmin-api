@@ -41,7 +41,7 @@ pi-setup:
 # On the Pi: next run, last run's result and its recent log lines
 pi-status:
 	systemctl --user list-timers --no-pager morning-report.timer
-	-systemctl --user status --no-pager morning-report.service
+	systemctl --user status --no-pager morning-report.service || true
 	journalctl --user -u morning-report -n 30 --no-pager
 
 # On the Pi: stop and delete the daily systemd timer
