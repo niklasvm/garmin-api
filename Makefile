@@ -1,4 +1,4 @@
-.PHONY: sync browser run explore report message message-send lint pi-setup pi-remove
+.PHONY: sync browser run explore report message message-send lint pi-setup pi-remove pi-status
 
 sync:
 	uv sync --frozen
@@ -37,6 +37,12 @@ pi-setup:
 	systemctl --user daemon-reload
 	systemctl --user enable --now morning-report.timer
 	systemctl --user list-timers morning-report.timer
+
+# On the Pi: next run, last run's result and its recent log lines
+pi-status:
+	systemctl --user list-timers --no-pager morning-report.timer
+	-systemctl --user status --no-pager morning-report.service
+	journalctl --user -u morning-report -n 30 --no-pager
 
 # On the Pi: stop and delete the daily systemd timer
 pi-remove:

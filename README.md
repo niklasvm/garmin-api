@@ -35,7 +35,7 @@ One-time setup on the Pi (64-bit OS, uv installed, `.env` copied into the repo),
 make pi-setup  # asks for sudo
 ```
 
-Check it with `systemctl --user list-timers` and `journalctl --user -u morning-report`; start a run now with `systemctl --user start --no-block morning-report`. `make pi-remove` deletes the timer.
+Check it with `make pi-status` (next run, last result and recent logs); start a run now with `systemctl --user start --no-block morning-report`. `make pi-remove` deletes the timer.
 
 ## Notes
 
