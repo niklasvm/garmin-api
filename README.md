@@ -27,7 +27,20 @@ TELEGRAM_CHAT_ID=...
 
 ## Schedule
 
-`.github/workflows/morning-report.yml` runs daily at 05:30 UTC+2 and polls until last night's data is in, giving up at 09:00. It needs the three `.env` values as repository secrets.
+A systemd timer on a Raspberry Pi (`deploy/`) runs daily at 05:30 UTC+2, pulls the latest code and polls until last night's data is in, giving up at 09:00. If the Pi was off at 05:30, it runs on boot.
+
+One-time setup on the Pi (64-bit OS, repo cloned to `~/garmin-api`, [uv](https://docs.astral.sh/uv/) in `~/.local/bin`, `.env` copied over):
+
+```sh
+make sync
+uv run --frozen playwright install --with-deps chromium  # asks for sudo
+sudo loginctl enable-linger $USER  # run the timer without being logged in
+make pi-install
+```
+
+Check it with `systemctl --user list-timers` and `journalctl --user -u morning-report`; start a run now with `systemctl --user start --no-block morning-report`.
+
+`.github/workflows/morning-report.yml` does the same on GitHub, started by hand from the Actions tab. It needs the three `.env` values as repository secrets.
 
 ## Notes
 

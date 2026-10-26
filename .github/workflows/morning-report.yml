@@ -1,8 +1,7 @@
 name: Morning report
 
+# Manual only: the daily run is on the Raspberry Pi (deploy/), since GitHub's cron can start hours late
 on:
-  schedule:
-    - cron: "30 3 * * *" # 05:30 UTC+2. GitHub cron is in UTC and often starts a few minutes late
   workflow_dispatch:
 
 permissions:
