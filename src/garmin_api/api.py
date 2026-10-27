@@ -78,9 +78,10 @@ def _local_hours(ms: int) -> float:
 def last_night_ready() -> bool:
     """Whether last night's sleep and HRV are final in Garmin, which happens after the watch syncs."""
     today = date.today().isoformat()
+    # The API returns no body at all when there's nothing for the range yet
     with get_client() as client:
-        sleep = client.get_daily_sleep_summaries(today, today)
-        hrv = client.get_daily_hrv_summaries(today, today)
+        sleep = client.get_daily_sleep_summaries(today, today) or []
+        hrv = client.get_daily_hrv_summaries(today, today) or {}
 
     s = next((x for x in sleep if x.get("calendarDate") == today), None)
     checks = {
@@ -109,9 +110,11 @@ def fetch_metrics() -> tuple[list[dict], list[dict]]:
     yesterday = today - timedelta(days=1)
 
     with get_client() as client:
-        sleep = client.get_daily_sleep_summaries(today - timedelta(days=7), today)
-        hrv = client.get_daily_hrv_summaries(today - timedelta(days=7), today)
-        summaries = client.get_daily_summaries(yesterday - timedelta(days=7), today)
+        sleep = client.get_daily_sleep_summaries(today - timedelta(days=7), today) or []
+        hrv = client.get_daily_hrv_summaries(today - timedelta(days=7), today) or {}
+        summaries = (
+            client.get_daily_summaries(yesterday - timedelta(days=7), today) or {}
+        )
 
     hrv_by_date = {h["calendarDate"]: h for h in hrv.get("hrvSummaries", [])}
     rhr_by_date = {
@@ -154,7 +157,7 @@ def fetch_metrics() -> tuple[list[dict], list[dict]]:
         if d["calendarDate"] < today.isoformat()
     ]
 
-    # Counts only: logs may be public (GitHub Actions), so no health values
+    # Counts only: keep health values out of the logs
     log.info("Fetched %d nights and %d days", len(nights), len(days))
     return sorted(nights, key=lambda r: r["date"]), sorted(
         days, key=lambda r: r["date"]

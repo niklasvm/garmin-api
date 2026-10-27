@@ -27,7 +27,17 @@ TELEGRAM_CHAT_ID=...
 
 ## Schedule
 
-`.github/workflows/morning-report.yml` runs daily at 05:30 UTC+2 and polls until last night's data is in, giving up at 09:00. It needs the three `.env` values as repository secrets.
+A systemd timer on a Raspberry Pi (`deploy/`) runs daily at 05:30 UTC+2, pulls the latest code and polls until last night's data is in, giving up at 09:00. If the Pi was off at 05:30, it runs on boot.
+
+One-time setup on the Pi (64-bit OS, uv installed, `.env` copied into the repo), from the repo folder:
+
+```sh
+make pi-setup  # asks for sudo
+```
+
+Check it with `make pi-status` (next run, last result and recent logs); start a run now with `systemctl --user start --no-block morning-report`. `make pi-remove` deletes the timer.
+
+From your machine, `make deploy` checks out the current branch on the Pi (`ssh rpi5`) and pulls it. Push first.
 
 ## Notes
 

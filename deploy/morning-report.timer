@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Garmin morning report
+
+[Timer]
+OnCalendar=*-*-* 05:30:00 Africa/Johannesburg
+# Run on boot if the Pi was off at 05:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

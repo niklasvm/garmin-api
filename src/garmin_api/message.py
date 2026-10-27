@@ -9,7 +9,6 @@ from typing import Annotated
 
 import requests
 import typer
-from garmin_personal_api import GarminPersonalApiError
 from playwright.sync_api import sync_playwright
 
 from garmin_api.api import fetch_metrics, last_night_ready, setup_logging
@@ -41,9 +40,10 @@ def _wait_for_data(until: str, poll_minutes: int) -> bool:
             if last_night_ready():
                 log.info("Last night's data is ready")
                 return True
-        except GarminPersonalApiError as e:
-            # Includes retries running out on 429s: treat as not ready and try again later
-            log.warning("Readiness check failed: %s", e)
+        except Exception as e:  # noqa: BLE001
+            # API errors, retries running out, network failures or unexpected responses:
+            # treat as not ready and try again later
+            log.warning("Readiness check failed: %s: %s", type(e).__name__, e)
         if datetime.now() + timedelta(minutes=poll_minutes) > deadline:
             return False
         log.info("Checking again in %d min (giving up at %s)", poll_minutes, until)
