@@ -37,6 +37,8 @@ make pi-setup  # asks for sudo
 
 Check it with `make pi-status` (next run, last result and recent logs); start a run now with `systemctl --user start --no-block morning-report`. `make pi-remove` deletes the timer.
 
+From your machine, `make deploy` checks out the current branch on the Pi (`ssh rpi5`) and pulls it. Push first.
+
 ## Notes
 
 - No sleep stage timeline in the API, only totals per stage.

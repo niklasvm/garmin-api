@@ -1,4 +1,4 @@
-.PHONY: sync browser run explore report message message-send lint pi-setup pi-remove pi-status
+.PHONY: sync browser run explore report message message-send lint pi-setup pi-remove pi-status deploy
 
 sync:
 	uv sync --frozen
@@ -49,3 +49,7 @@ pi-remove:
 	-systemctl --user disable --now morning-report.timer
 	rm -f ~/.config/systemd/user/morning-report.service ~/.config/systemd/user/morning-report.timer
 	systemctl --user daemon-reload
+
+# From the host: put the Pi on the same branch as here and pull (push first)
+deploy:
+	ssh rpi5 "cd /home/nik/projects/garmin-api && git fetch && git checkout $$(git rev-parse --abbrev-ref HEAD) && git pull --ff-only"
