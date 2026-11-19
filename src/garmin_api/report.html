@@ -9,11 +9,13 @@
   :root {
     --bg: #f7f7f5; --card: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --grid: #e5e5e5;
     --accent: #2563eb; --base: #b8c4d6; --good: #15803d; --bad: #b91c1c;
+    --good-bg: #e7f6ec; --bad-bg: #fdeaea;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #141416; --card: #1f1f22; --text: #f2f2f2; --muted: #9a9aa0; --grid: #2e2e32;
       --accent: #60a5fa; --base: #4b5567; --good: #4ade80; --bad: #f87171;
+      --good-bg: #14301f; --bad-bg: #3a1a1a;
     }
   }
   * { box-sizing: border-box; }
@@ -30,6 +32,11 @@
   .tile .value small { font-size: 14px; font-weight: 400; color: var(--muted); }
   .tile .delta { font-size: 13px; color: var(--muted); }
   .good { color: var(--good) !important; } .bad { color: var(--bad) !important; }
+  .tile.in  { background: var(--good-bg); box-shadow: inset 4px 0 0 var(--good); }
+  .tile.out { background: var(--bad-bg);  box-shadow: inset 4px 0 0 var(--bad); }
+  .tile.in .value { color: var(--good); } .tile.out .value { color: var(--bad); }
+  .tile .range { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .compact .tile .range { font-size: 10px; }
   .charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
   .chart h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
   .chart div { position: relative; height: 200px; }
@@ -90,7 +97,8 @@ document.getElementById("date").textContent = reportDate.toLocaleDateString("en-
 
 // better: "up" if higher is better, "down" if lower is better, null for neutral
 // clock: fmt shows a time of day, so the change reads as minutes earlier or later
-function tile(label, rows, key, { unit = "", better = null, digits = 0, fmt = null, clock = false } = {}) {
+// range: (last row, prior avg) => [lo, hi], either end may be null; colours the tile green/red
+function tile(label, rows, key, { unit = "", better = null, digits = 0, fmt = null, clock = false, range = null } = {}) {
   const last = rows.at(-1)?.[key];
   const avg = mean(rows.slice(0, -1).map(r => r[key]));
   const show = v => v == null ? "–" : fmt ? fmt(v) : v.toFixed(digits);
@@ -101,29 +109,37 @@ function tile(label, rows, key, { unit = "", better = null, digits = 0, fmt = nu
     const sign = d > 0 ? "+" : d < 0 ? "−" : "±";
     const dTxt = clock ? (d === 0 ? "same as" : `${Math.round(Math.abs(d) * 60)} min ${d > 0 ? "later" : "earlier"} than`)
                        : `${sign}${fmt ? fmt(Math.abs(d)) : Math.abs(d).toFixed(digits)} vs`;
-    if (better && d !== 0) cls = (d > 0) === (better === "up") ? "good" : "bad";
     delta = `<span class="${cls}">${dTxt}</span> avg ${show(avg)}`;
   }
-  return `<div class="tile"><div class="label">${label}</div>
-    <div class="value">${show(last)}<small> ${unit}</small></div><div class="delta">${delta}</div></div>`;
+  let state = "", rangeTxt = "";
+  if (range && last != null) {
+    const [lo, hi] = range(rows.at(-1), avg);
+    if (lo != null || hi != null) {
+      state = (lo == null || last >= lo) && (hi == null || last <= hi) ? "in" : "out";
+      rangeTxt = lo != null && hi != null ? `${show(lo)}–${show(hi)}` : lo != null ? `≥ ${show(lo)}` : `≤ ${show(hi)}`;
+      rangeTxt = `<div class="range">${data.compact ? "" : "Target "}${rangeTxt}</div>`;
+    }
+  }
+  return `<div class="tile ${state}"><div class="label">${label}</div>
+    <div class="value">${show(last)}<small> ${unit}</small></div><div class="delta">${delta}</div>${rangeTxt}</div>`;
 }
 
 const N = data.nights, D = data.days;
 document.getElementById("night-tiles").innerHTML = [
-  tile("Sleep", N, "sleep_h", { better: "up", fmt: fmtDur }),
-  tile("Sleep score", N, "score", { better: "up" }),
-  tile("Bedtime", N, "bed_h", { fmt: fmtTime, clock: true }),
-  tile("Wake time", N, "wake_h", { fmt: fmtTime, clock: true }),
-  tile("Deep", N, "deep_h", { better: "up", fmt: fmtDur }),
-  tile("REM", N, "rem_h", { better: "up", fmt: fmtDur }),
-  tile("HRV", N, "hrv", { unit: "ms", better: "up" }),
-  data.compact ? "" : tile("Avg sleep HR", N, "sleep_hr", { unit: "bpm", better: "down" }),
-  tile("Resting HR", N, "rhr", { unit: "bpm", better: "down" }),
+  tile("Sleep", N, "sleep_h", { better: "up", fmt: fmtDur, range: () => [7, 9] }),
+  tile("Sleep score", N, "score", { better: "up", range: () => [80, null] }),
+  tile("Bedtime", N, "bed_h", { fmt: fmtTime, clock: true, range: (r, a) => a == null ? [] : [a - 0.5, a + 0.5] }),
+  tile("Wake time", N, "wake_h", { fmt: fmtTime, clock: true, range: (r, a) => a == null ? [] : [a - 0.5, a + 0.5] }),
+  tile("Deep", N, "deep_h", { better: "up", fmt: fmtDur, range: r => [0.16 * r.sleep_h, null] }),
+  tile("REM", N, "rem_h", { better: "up", fmt: fmtDur, range: r => [0.21 * r.sleep_h, null] }),
+  tile("HRV", N, "hrv", { unit: "ms", better: "up", range: r => [r.hrv_low, r.hrv_high] }),
+  data.compact ? "" : tile("Avg sleep HR", N, "sleep_hr", { unit: "bpm", better: "down", range: (r, a) => a == null ? [] : [null, Math.round(a + 3)] }),
+  tile("Resting HR", N, "rhr", { unit: "bpm", better: "down", range: (r, a) => a == null ? [] : [null, Math.round(a + 3)] }),
 ].join("");
 document.getElementById("day-tiles").innerHTML = [
-  tile("Body Battery max", D, "bb_max", { better: "up" }),
-  tile("Body Battery min", D, "bb_min", { better: "up" }),
-  tile("Avg stress", D, "stress_avg", { better: "down" }),
+  tile("Body Battery max", D, "bb_max", { better: "up", range: () => [75, null] }),
+  tile("Body Battery min", D, "bb_min", { better: "up", range: () => [20, null] }),
+  tile("Avg stress", D, "stress_avg", { better: "down", range: () => [null, 35] }),
   tile("Max stress", D, "stress_max", { better: "down" }),
 ].join("");
 
